@@ -1,0 +1,90 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f7f9;
+    color: #333;
+    line-height: 1.6;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 700px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.rules {
+    margin-bottom: 20px;
+}
+.rules h2, .rules h4 {
+    color: #0056b3;
+}
+.rules ol {
+    padding-left: 20px;
+}
+hr {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 30px 0;
+}
+form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+form input[type="text"],
+form input[type="email"],
+form input[type="date"],
+form select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 16px;
+    background-color: white;
+}
+form button {
+    width: 100%;
+    padding: 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+form button:hover {
+    background-color: #0056b3;
+}
+form button:disabled {
+    background-color: #a0a0a0;
+    cursor: not-allowed;
+}
+#statusMessage {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+}
+.status-sukses {
+    background-color: #d4edda;
+    color: #155724;
+}
+.status-gagal {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.time-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+.time-container > div {
+    width: 48%;
+}
