@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Check-in Lab</title>
+    <link rel="stylesheet" href="scan-style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Scanner Check-in Lab</h1>
+        <p>Arahkan QR Code dari email Anda ke kamera di bawah ini.</p>
+        
+        <div id="reader"></div>
+        
+        <div id="result-container">
+            <h2>Status:</h2>
+            <div id="result">Menunggu pemindaian...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="scanner.js"></script>
+</body>
+</html>
