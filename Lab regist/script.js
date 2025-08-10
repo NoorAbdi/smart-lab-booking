@@ -1,7 +1,7 @@
 // =================================================================
-// KONFIGURASI - PASTE URL WEB APP BARU ANDA DARI GOOGLE
+// KONFIGURASI - SAMBUNGKAN KE SERVER PYTHON ANDA
 // =================================================================
-const SCRIPT_URL = "http://127.0.0.1:5000";
+const BASE_URL = "http://127.0.0.1:5000"; // Alamat server Python
 
 // =================================================================
 // BAGIAN UTAMA - TIDAK PERLU DIUBAH
@@ -16,26 +16,28 @@ const waktuSelesaiSelect = document.getElementById('waktuSelesai');
 
 let bookedSlotsForSelectedDate = [];
 
-// --- Fungsi untuk mengubah string waktu (HH:mm) menjadi menit dari tengah malam ---
+// --- Fungsi utilitas untuk mengubah "HH:mm" menjadi menit ---
 function timeToMinutes(time) {
+    if (typeof time !== 'string' || !time.includes(':')) return 0;
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
 }
 
-// --- Fungsi untuk mengambil data booking yang sudah disetujui dari server ---
+// --- Fungsi untuk mengambil jadwal yang sudah terisi dari server ---
 async function fetchBookedSlots(date) {
     if (!date) {
         bookedSlotsForSelectedDate = [];
-        populateTimeSlots(); // Kosongkan dan reset jika tanggal dikosongkan
+        populateTimeSlots();
         return;
     }
     
-    statusMessage.innerText = "Mengecek jadwal yang tersedia...";
+    statusMessage.innerText = "Mengecek jadwal...";
     statusMessage.className = '';
     submitButton.disabled = true;
 
     try {
-        const response = await fetch(`${SCRIPT_URL}?action=getBookedSlots&tanggal=${date}`);
+        // PERBAIKAN DI SINI: Menggunakan BASE_URL
+        const response = await fetch(`${BASE_URL}/api/getBookedSlots?tanggal=${date}`);
         const result = await response.json();
         
         if (result.status === 'sukses') {
@@ -46,81 +48,75 @@ async function fetchBookedSlots(date) {
             statusMessage.innerText = "Jadwal berhasil dimuat. Silakan pilih waktu.";
             statusMessage.className = 'status-sukses';
         } else {
-            throw new Error(result.message);
+            throw new Error(result.message || 'Gagal mengambil data dari server.');
         }
     } catch (error) {
         console.error('Error fetching booked slots:', error);
-        statusMessage.innerText = `Gagal memuat jadwal: ${error.message}`;
+        statusMessage.innerText = `Gagal memuat jadwal. Periksa koneksi atau coba lagi nanti.`;
         statusMessage.className = 'status-gagal';
-        bookedSlotsForSelectedDate = []; // Reset jika terjadi error
+        bookedSlotsForSelectedDate = [];
     } finally {
-        populateTimeSlots(); // Perbarui dropdown waktu
+        populateTimeSlots();
     }
 }
 
-// --- Fungsi untuk mengisi dan mengunci dropdown waktu ---
+// --- Fungsi untuk mengisi dropdown waktu ---
 function populateTimeSlots() {
-    const selectedStartTime = waktuMulaiSelect.value;
-    const selectedEndTime = waktuSelesaiSelect.value;
-
+    const lastSelectedStart = waktuMulaiSelect.value;
+    const lastSelectedEnd = waktuSelesaiSelect.value;
+    
     waktuMulaiSelect.innerHTML = '<option value="">Pilih Waktu</option>';
     waktuSelesaiSelect.innerHTML = '<option value="">Pilih Waktu</option>';
 
-    const startTime = 8 * 60; // 08:00 dalam menit
-    const endTime = 17 * 60; // 17:00 dalam menit
-    const interval = 30;
+    const startTime = 8 * 60, endTime = 17 * 60, interval = 30;
 
     for (let i = startTime; i <= endTime; i += interval) {
         const hours = Math.floor(i / 60).toString().padStart(2, '0');
         const minutes = (i % 60).toString().padStart(2, '0');
         const timeString = `${hours}:${minutes}`;
-        const currentTimeInMinutes = i;
         
         let isBooked = false;
         for (const slot of bookedSlotsForSelectedDate) {
-            if (currentTimeInMinutes >= slot.start && currentTimeInMinutes < slot.end) {
+            if (i >= slot.start && i < slot.end) {
                 isBooked = true;
                 break;
             }
         }
-        
+
         if (i < endTime) {
-             const startOption = new Option(timeString, timeString);
-             if (isBooked) {
-                 startOption.disabled = true;
-                 startOption.innerText = `${timeString} (Booked)`;
-             }
-             waktuMulaiSelect.add(startOption);
+            const startOption = new Option(isBooked ? `${timeString} (Terisi)`: timeString, timeString);
+            startOption.disabled = isBooked;
+            waktuMulaiSelect.add(startOption);
         }
 
         if (i > startTime) {
+            const endOption = new Option(timeString, timeString);
             let isEndBooked = false;
             for (const slot of bookedSlotsForSelectedDate) {
-                if (currentTimeInMinutes > slot.start && currentTimeInMinutes <= slot.end) {
+                if (i > slot.start && i <= slot.end) {
                     isEndBooked = true;
                     break;
                 }
             }
-            const endOption = new Option(timeString, timeString);
-             if (isEndBooked) {
-                 endOption.disabled = true;
-                 endOption.innerText = `${timeString} (Booked)`;
-             }
+            if(isEndBooked) {
+                endOption.disabled = true;
+                endOption.innerText = `${timeString} (Terisi)`;
+            }
             waktuSelesaiSelect.add(endOption);
         }
     }
-    
-    waktuMulaiSelect.value = selectedStartTime;
-    waktuSelesaiSelect.value = selectedEndTime;
+
+    waktuMulaiSelect.value = lastSelectedStart;
+    waktuSelesaiSelect.value = lastSelectedEnd;
     
     validateTimeSelection();
 }
 
-// --- Fungsi untuk validasi durasi dan tumpang tindih ---
+// --- Fungsi validasi ---
 function validateTimeSelection() {
     const startValue = waktuMulaiSelect.value;
     const endValue = waktuSelesaiSelect.value;
-    
+
     if (!startValue || !endValue) {
         submitButton.disabled = true;
         return;
@@ -130,8 +126,14 @@ function validateTimeSelection() {
     const endTimeInMinutes = timeToMinutes(endValue);
     const duration = endTimeInMinutes - startTimeInMinutes;
 
-    if (duration <= 0 || duration > 120) {
-        statusMessage.innerText = 'Durasi booking maksimal 2 jam dan waktu selesai harus setelah waktu mulai.';
+    if (duration <= 0) {
+        statusMessage.innerText = 'Waktu selesai harus setelah waktu mulai.';
+        statusMessage.className = 'status-gagal';
+        submitButton.disabled = true;
+        return;
+    }
+    if (duration > 120) {
+        statusMessage.innerText = 'Durasi booking maksimal adalah 2 jam.';
         statusMessage.className = 'status-gagal';
         submitButton.disabled = true;
         return;
@@ -139,7 +141,7 @@ function validateTimeSelection() {
 
     for (const slot of bookedSlotsForSelectedDate) {
         if (startTimeInMinutes < slot.end && endTimeInMinutes > slot.start) {
-            statusMessage.innerText = 'Waktu yang Anda pilih tumpang tindih dengan jadwal lain.';
+            statusMessage.innerText = 'Waktu yang Anda pilih bertabrakan dengan jadwal lain.';
             statusMessage.className = 'status-gagal';
             submitButton.disabled = true;
             return;
@@ -153,9 +155,10 @@ function validateTimeSelection() {
 
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
-    const today = new Date().toISOString().split('T')[0];
-    tanggalBookingInput.setAttribute('min', today);
-    populateTimeSlots();
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    tanggalBookingInput.setAttribute('min', todayStr);
+    populateTimeSlots(); 
 });
 
 tanggalBookingInput.addEventListener('change', function() {
@@ -167,7 +170,7 @@ waktuSelesaiSelect.addEventListener('change', validateTimeSelection);
 
 form.addEventListener('submit', function(e) {
     e.preventDefault();
-    validateTimeSelection();
+    validateTimeSelection(); 
     if (submitButton.disabled) {
         alert('Mohon perbaiki isian waktu Anda. Perhatikan pesan status di bawah formulir.');
         return;
@@ -176,7 +179,8 @@ form.addEventListener('submit', function(e) {
     submitButton.disabled = true;
     submitButton.innerText = "Mengirim...";
 
-    fetch(SCRIPT_URL, {
+    // PERBAIKAN DI SINI: Menggunakan BASE_URL
+    fetch(`${BASE_URL}/api/submitBooking`, {
         method: 'POST',
         body: new FormData(form)
     })
@@ -186,7 +190,6 @@ form.addEventListener('submit', function(e) {
         statusMessage.className = data.status === 'sukses' ? 'status-sukses' : 'status-gagal';
         if (data.status === 'sukses') {
             form.reset();
-            tanggalBookingInput.value = '';
             bookedSlotsForSelectedDate = [];
             populateTimeSlots();
         }
@@ -197,7 +200,7 @@ form.addEventListener('submit', function(e) {
         statusMessage.className = 'status-gagal';
     })
     .finally(() => {
-        submitButton.disabled = false;
         submitButton.innerText = "Kirim Permintaan Booking";
+        validateTimeSelection();
     });
 });
