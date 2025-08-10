@@ -114,6 +114,17 @@ def get_booked_slots():
         return jsonify({'status': 'sukses', 'data': booked_slots})
     except Exception as e: return jsonify({'status': 'gagal', 'message': f"Terjadi kesalahan: {e}"}), 500
 
+@app.route('/api/getDashboardData', methods=['GET'])
+def get_dashboard_data():
+    """Endpoint untuk menyediakan semua data booking untuk dashboard."""
+    try:
+        all_records = sheet.get_all_records()
+        # Membersihkan data kosong jika ada
+        clean_records = [record for record in all_records if record.get('ID Baris')]
+        return jsonify({'status': 'sukses', 'data': clean_records})
+    except Exception as e:
+        return jsonify({'status': 'gagal', 'message': f"Terjadi kesalahan: {e}"}), 500
+
 @app.route('/api/submitBooking', methods=['POST'])
 def handle_form_submission():
     try:
