@@ -5,19 +5,19 @@ import qrcode
 from io import BytesIO
 from datetime import datetime
 from dotenv import load_dotenv
-# PERUBAHAN 1: Impor render_template
-from flask import Flask, request, jsonify, render_template 
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from oauth2client.service_account import ServiceAccountCredentials
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
-# --- 1. INISIALISASI DAN KONFIGURASI ---
-# (Tidak ada perubahan di bagian ini)
+# --- INISIALISASI DAN KONFIGURASI ---
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
+
+# Konfigurasi dari file .env
 SHEET_ID = os.getenv("SHEET_ID")
 SHEET_NAME = os.getenv("SHEET_NAME")
 APP_URL = os.getenv("APP_URL")
@@ -27,6 +27,7 @@ SMTP_SENDER_EMAIL = os.getenv("SMTP_SENDER_EMAIL")
 SMTP_SENDER_PASSWORD = os.getenv("SMTP_SENDER_PASSWORD")
 LAB_HEAD_EMAIL = os.getenv("LAB_HEAD_EMAIL")
 
+# Koneksi ke Google Sheets
 try:
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
@@ -36,8 +37,7 @@ except Exception as e:
     print(f"GAGAL KONEK KE GOOGLE SHEETS: Pastikan file 'credentials.json' ada dan sudah di-share. Error: {e}")
     exit()
 
-# --- 2. FUNGSI-FUNGSI HELPER ---
-# (Tidak ada perubahan di bagian ini)
+# --- FUNGSI-FUNGSI HELPER ---
 def time_to_minutes(time_str):
     if isinstance(time_str, str) and ':' in time_str:
         h, m = map(int, time_str.split(':'))
@@ -46,7 +46,7 @@ def time_to_minutes(time_str):
 
 def send_email(to_address, subject, html_body, qr_image_bytes=None):
     msg = MIMEMultipart('related')
-    msg['From'] = f"Booking Lab <{SMTP_SENDER_EMAIL}>"
+    msg['From'] = f"Booking Lab Sampoerna <{SMTP_SENDER_EMAIL}>"
     msg['To'] = to_address
     msg['Subject'] = subject
     msg_alternative = MIMEMultipart('alternative')
@@ -66,8 +66,7 @@ def send_email(to_address, subject, html_body, qr_image_bytes=None):
     except Exception as e:
         print(f"Gagal mengirim email: {e}")
 
-# --- 3. FUNGSI UNTUK TEMPLATE EMAIL ---
-# (Tidak ada perubahan di bagian ini)
+# --- FUNGSI UNTUK TEMPLATE EMAIL ---
 def create_approval_email_body(data, row_id):
     approve_url = f"{APP_URL}/approve?id={row_id}"
     reject_url = f"{APP_URL}/reject?id={row_id}"
@@ -79,8 +78,8 @@ def create_approval_email_body(data, row_id):
       <li><b>Waktu:</b> {data.get('waktuMulai')} - {data.get('waktuSelesai')}</li>
     </ul>
     <p>Silakan setujui atau tolak permintaan ini:</p>
-    <a href="{approve_url}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">SETUJUI</a>
-    <a href="{reject_url}" style="background-color: #dc3545; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-left: 10px;">TOLAK</a>
+    <a href="{approve_url}" style="background-color: #0033A0; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">SETUJUI</a>
+    <a href="{reject_url}" style="background-color: #D4002A; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; margin-left: 10px;">TOLAK</a>
     """
 
 def create_approved_email_body(user_data, checkin_url):
@@ -104,12 +103,9 @@ def create_rejected_email_body(data):
     <p>Silakan hubungi administrasi lab untuk informasi lebih lanjut.</p><p>Terima kasih.</p>
     """
 
-# --- 4. ENDPOINTS / ROUTES ---
-# (Hanya ada perubahan di fungsi handle_action)
-
+# --- ENDPOINTS / ROUTES ---
 @app.route('/api/getBookedSlots', methods=['GET'])
 def get_booked_slots():
-    # ... kode tidak berubah ...
     try:
         tanggal = request.args.get('tanggal')
         if not tanggal: return jsonify({'status': 'gagal', 'message': 'Parameter tanggal tidak ditemukan'}), 400
@@ -120,7 +116,6 @@ def get_booked_slots():
 
 @app.route('/api/submitBooking', methods=['POST'])
 def handle_form_submission():
-    # ... kode tidak berubah ...
     try:
         data = request.form.to_dict()
         all_records = sheet.get_all_records()
@@ -143,7 +138,6 @@ def handle_form_submission():
 
 @app.route('/<action>', methods=['GET'])
 def handle_action(action):
-    # PERUBAHAN 2: Modifikasi seluruh fungsi ini
     row_id = request.args.get('id')
     if not row_id: return "Error: ID tidak ditemukan.", 400
 
@@ -166,8 +160,6 @@ def handle_action(action):
             img_bytes.seek(0)
             email_body = create_approved_email_body(user_data, checkin_url)
             send_email(user_data['emailPengguna'], "Booking Lab Anda Telah Disetujui!", email_body, qr_image_bytes=img_bytes.read())
-            
-            # Tampilkan template konfirmasi
             message = f"Booking untuk {user_data['nama']} telah berhasil DISETUJUI."
             return render_template('konfirmasi.html', message=message, status="sukses")
             
@@ -175,16 +167,12 @@ def handle_action(action):
             sheet.update_cell(cell.row, 8, "Ditolak")
             email_body = create_rejected_email_body(user_data)
             send_email(user_data['emailPengguna'], "Permintaan Booking Lab Anda Ditolak", email_body)
-            
-            # Tampilkan template konfirmasi
             message = f"Booking untuk {user_data['nama']} telah DITOLAK."
             return render_template('konfirmasi.html', message=message, status="gagal")
 
         elif action == 'checkin':
             sheet.update_cell(cell.row, 8, "Datang")
             tanggal = datetime.strptime(user_data['tanggalBooking'], '%Y-%m-%d').strftime('%d/%m/%Y')
-            
-            # Tampilkan template konfirmasi
             message = f"Check-in atas nama {user_data['nama']} untuk jadwal {tanggal}, {user_data['waktuMulai']} - {user_data['waktuSelesai']} telah berhasil."
             return render_template('konfirmasi.html', message=message, status="sukses")
         
