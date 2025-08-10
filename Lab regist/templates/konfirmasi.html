@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konfirmasi Tindakan</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #4b5563;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+        .icon {
+            font-size: 60px;
+            width: 90px;
+            height: 90px;
+            line-height: 90px;
+            border-radius: 50%;
+            margin: 0 auto 25px auto;
+            color: #ffffff;
+        }
+        .icon.success {
+            background-color: #28a745;
+        }
+        .icon.reject {
+            background-color: #dc3545;
+        }
+        h1 {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if status == 'sukses' %}
+            <div class="icon success">&#10003;</div>
+            <h1>Tindakan Berhasil</h1>
+        {% else %}
+            <div class="icon reject">&#10007;</div>
+            <h1>Tindakan Dikonfirmasi</h1>
+        {% endif %}
+
+        <p>{{ message }}</p>
+
+        <div class="footer">
+            Anda bisa menutup halaman ini.
+        </div>
+    </div>
+</body>
+</html>
