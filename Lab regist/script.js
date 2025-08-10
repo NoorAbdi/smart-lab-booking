@@ -1,7 +1,7 @@
 // =================================================================
 // KONFIGURASI - PASTE URL WEB APP BARU ANDA DARI GOOGLE
 // =================================================================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwgfYi9r8Ml0MWFjnM4L9Nbi_oUJ6DvXAWF1xpyAeR3Dqrg8-MPWn13yXCl2r8QxZe9Pw/exec";
+const SCRIPT_URL = "http://127.0.0.1:5000";
 
 // =================================================================
 // BAGIAN UTAMA - TIDAK PERLU DIUBAH
