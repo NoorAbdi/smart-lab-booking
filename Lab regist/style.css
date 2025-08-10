@@ -82,3 +82,7 @@ form button:disabled {
 .status-gagal { background-color: #ffe6e6; color: #D4002A; }
 .time-container { display: flex; justify-content: space-between; gap: 20px; }
 .time-container > div { width: 100%; }
+/* Tambahkan ini di akhir file style.css Anda */
+#other-purpose-container.hidden {
+    display: none;
+}

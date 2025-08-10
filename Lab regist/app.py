@@ -12,12 +12,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
-# --- INISIALISASI DAN KONFIGURASI ---
+# --- INISIALISASI ---
 load_dotenv()
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# Konfigurasi dari file .env
+# --- KONFIGURASI ---
 SHEET_ID = os.getenv("SHEET_ID")
 SHEET_NAME = os.getenv("SHEET_NAME")
 APP_URL = os.getenv("APP_URL")
@@ -27,7 +27,7 @@ SMTP_SENDER_EMAIL = os.getenv("SMTP_SENDER_EMAIL")
 SMTP_SENDER_PASSWORD = os.getenv("SMTP_SENDER_PASSWORD")
 LAB_HEAD_EMAIL = os.getenv("LAB_HEAD_EMAIL")
 
-# Koneksi ke Google Sheets
+# --- KONEKSI GOOGLE SHEETS ---
 try:
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
@@ -37,7 +37,7 @@ except Exception as e:
     print(f"GAGAL KONEK KE GOOGLE SHEETS: Pastikan file 'credentials.json' ada dan sudah di-share. Error: {e}")
     exit()
 
-# --- FUNGSI-FUNGSI HELPER ---
+# --- FUNGSI HELPER & TEMPLATE EMAIL (Tidak ada perubahan signifikan) ---
 def time_to_minutes(time_str):
     if isinstance(time_str, str) and ':' in time_str:
         h, m = map(int, time_str.split(':'))
@@ -62,11 +62,9 @@ def send_email(to_address, subject, html_body, qr_image_bytes=None):
             server.starttls()
             server.login(SMTP_SENDER_EMAIL, SMTP_SENDER_PASSWORD)
             server.send_message(msg)
-        print(f"Email terkirim ke {to_address}")
     except Exception as e:
         print(f"Gagal mengirim email: {e}")
 
-# --- FUNGSI UNTUK TEMPLATE EMAIL ---
 def create_approval_email_body(data, row_id):
     approve_url = f"{APP_URL}/approve?id={row_id}"
     reject_url = f"{APP_URL}/reject?id={row_id}"
@@ -76,6 +74,7 @@ def create_approval_email_body(data, row_id):
       <li><b>Nama:</b> {data.get('nama')}</li><li><b>ID:</b> {data.get('idPengguna')}</li>
       <li><b>Email:</b> {data.get('emailPengguna')}</li><li><b>Tanggal:</b> {data.get('tanggalBooking')}</li>
       <li><b>Waktu:</b> {data.get('waktuMulai')} - {data.get('waktuSelesai')}</li>
+      <li><b>Keperluan:</b> {data.get('finalPurpose')}</li>
     </ul>
     <p>Silakan setujui atau tolak permintaan ini:</p>
     <a href="{approve_url}" style="background-color: #0033A0; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">SETUJUI</a>
@@ -86,30 +85,31 @@ def create_approved_email_body(user_data, checkin_url):
     formatted_date = datetime.strptime(user_data.get('tanggalBooking', ''), '%Y-%m-%d').strftime('%d/%m/%Y')
     return f"""
     <html><body><h2>Halo {user_data.get('nama')},</h2>
-      <p>Kabar baik! Permintaan booking lab Anda untuk jadwal berikut telah disetujui:</p>
+      <p>Permintaan booking lab Anda untuk jadwal berikut telah disetujui:</p>
       <ul><li><b>Tanggal:</b> {formatted_date}</li><li><b>Waktu:</b> {user_data.get('waktuMulai')} - {user_data.get('waktuSelesai')}</li></ul>
-      <p>Silakan pindai (scan) QR Code di bawah ini pada perangkat yang tersedia di lab untuk melakukan check-in.</p>
-      <div style="padding: 20px;"><img src="cid:qr_code_image" alt="QR Code untuk Check-in"></div>
-      <p>Atau klik link ini jika QR tidak terbaca: <a href="{checkin_url}">Link Check-in Manual</a></p>
-      <p>Terima kasih.</p></body></html>
+      <p>Silakan pindai QR Code di bawah ini untuk check-in.</p>
+      <div style="padding: 20px;"><img src="cid:qr_code_image" alt="QR Code"></div>
+      <p>Atau klik link ini: <a href="{checkin_url}">Link Check-in Manual</a></p></body></html>
     """
 
 def create_rejected_email_body(data):
     formatted_date = datetime.strptime(data.get('tanggalBooking', ''), '%Y-%m-%d').strftime('%d/%m/%Y')
     return f"""
     <h2>Halo {data.get('nama')},</h2>
-    <p>Mohon maaf, permintaan booking lab Anda untuk jadwal berikut tidak dapat disetujui saat ini:</p>
+    <p>Mohon maaf, permintaan booking lab Anda tidak dapat disetujui saat ini:</p>
     <ul><li><b>Tanggal:</b> {formatted_date}</li><li><b>Waktu:</b> {data.get('waktuMulai')} - {data.get('waktuSelesai')}</li></ul>
-    <p>Silakan hubungi administrasi lab untuk informasi lebih lanjut.</p><p>Terima kasih.</p>
+    <p>Silakan hubungi administrasi lab untuk informasi lebih lanjut.</p>
     """
 
 # --- ENDPOINTS / ROUTES ---
+
 @app.route('/api/getBookedSlots', methods=['GET'])
 def get_booked_slots():
     try:
         tanggal = request.args.get('tanggal')
         if not tanggal: return jsonify({'status': 'gagal', 'message': 'Parameter tanggal tidak ditemukan'}), 400
         all_records = sheet.get_all_records()
+        # PERUBAHAN: Menggunakan 'Status' sebagai acuan
         booked_slots = [{'start': r.get('Waktu Mulai'), 'end': r.get('Waktu Selesai')} for r in all_records if str(r.get('Tanggal Booking')) == tanggal and r.get('Status') in ["Disetujui", "Menunggu Persetujuan"]]
         return jsonify({'status': 'sukses', 'data': booked_slots})
     except Exception as e: return jsonify({'status': 'gagal', 'message': f"Terjadi kesalahan: {e}"}), 500
@@ -121,18 +121,37 @@ def handle_form_submission():
         all_records = sheet.get_all_records()
         new_start = time_to_minutes(data['waktuMulai'])
         new_end = time_to_minutes(data['waktuSelesai'])
+
         for record in all_records:
-            status = record.get('Status')
-            if str(record.get('Tanggal Booking')) == data['tanggalBooking'] and (status in ["Disetujui", "Menunggu Persetujuan"]):
+            if str(record.get('Tanggal Booking')) == data['tanggalBooking'] and record.get('Status') in ["Disetujui", "Menunggu Persetujuan"]:
                 existing_start = time_to_minutes(record.get('Waktu Mulai'))
                 existing_end = time_to_minutes(record.get('Waktu Selesai'))
                 if new_start < existing_end and existing_start < new_end: return jsonify({'status': 'gagal', 'message': 'Jadwal pada jam tersebut sudah terisi.'})
+        
+        # PERUBAHAN: Menangani data 'purpose'
+        purpose = data.get('bookingPurpose')
+        if purpose == 'Other':
+            final_purpose = data.get('otherPurpose', 'Other - tidak spesifik')
+        else:
+            final_purpose = purpose
+        data['finalPurpose'] = final_purpose # Tambahkan ke dict untuk email
+
         import uuid
         row_id = str(uuid.uuid4())
-        new_row = [datetime.now().isoformat(), data['nama'], data['idPengguna'], data['emailPengguna'], data['tanggalBooking'], data['waktuMulai'], data['waktuSelesai'], "Menunggu Persetujuan", row_id]
+        
+        # PERUBAHAN: Menambahkan 'final_purpose' ke baris baru dan menyesuaikan urutan
+        new_row = [
+            datetime.now().isoformat(), data['nama'], data['idPengguna'], data['emailPengguna'],
+            data['tanggalBooking'], data['waktuMulai'], data['waktuSelesai'],
+            final_purpose,  # <-- DATA BARU DI SINI (KOLOM H)
+            "Menunggu Persetujuan",  # <-- KOLOM I
+            row_id  # <-- KOLOM J
+        ]
         sheet.append_row(new_row, value_input_option='USER_ENTERED')
+        
         email_body = create_approval_email_body(data, row_id)
         send_email(LAB_HEAD_EMAIL, f"Permintaan Booking Lab Baru: {data['nama']}", email_body)
+        
         return jsonify({'status': 'sukses', 'message': 'Permintaan booking terkirim!'})
     except Exception as e: return jsonify({'status': 'gagal', 'message': f'Terjadi kesalahan server: {e}'}), 500
 
@@ -142,17 +161,18 @@ def handle_action(action):
     if not row_id: return "Error: ID tidak ditemukan.", 400
 
     try:
-        cell = sheet.find(row_id)
-        if not cell: return render_template('konfirmasi.html', message="Data booking tidak ditemukan atau sudah diproses sebelumnya.", status="gagal"), 404
+        # PERUBAHAN: Mencari di kolom ke-10 (J) untuk ID Baris
+        cell = sheet.find(row_id, in_column=10) 
+        if not cell: return render_template('konfirmasi.html', message="Data booking tidak ditemukan atau sudah diproses.", status="gagal"), 404
         
         target_row_values = sheet.row_values(cell.row)
-        user_data = {
-            'nama': target_row_values[1], 'emailPengguna': target_row_values[3], 'tanggalBooking': target_row_values[4],
-            'waktuMulai': target_row_values[5], 'waktuSelesai': target_row_values[6]
-        }
+        user_data = {'nama': target_row_values[1], 'emailPengguna': target_row_values[3], 'tanggalBooking': target_row_values[4], 'waktuMulai': target_row_values[5], 'waktuSelesai': target_row_values[6]}
+        
+        # PERUBAHAN: Update status di kolom ke-9 (I)
+        status_col = 9 
         
         if action == 'approve':
-            sheet.update_cell(cell.row, 8, "Disetujui")
+            sheet.update_cell(cell.row, status_col, "Disetujui")
             checkin_url = f"{APP_URL}/checkin?id={row_id}"
             qr_img = qrcode.make(checkin_url)
             img_bytes = BytesIO()
@@ -164,14 +184,14 @@ def handle_action(action):
             return render_template('konfirmasi.html', message=message, status="sukses")
             
         elif action == 'reject':
-            sheet.update_cell(cell.row, 8, "Ditolak")
+            sheet.update_cell(cell.row, status_col, "Ditolak")
             email_body = create_rejected_email_body(user_data)
             send_email(user_data['emailPengguna'], "Permintaan Booking Lab Anda Ditolak", email_body)
             message = f"Booking untuk {user_data['nama']} telah DITOLAK."
             return render_template('konfirmasi.html', message=message, status="gagal")
 
         elif action == 'checkin':
-            sheet.update_cell(cell.row, 8, "Datang")
+            sheet.update_cell(cell.row, status_col, "Datang")
             tanggal = datetime.strptime(user_data['tanggalBooking'], '%Y-%m-%d').strftime('%d/%m/%Y')
             message = f"Check-in atas nama {user_data['nama']} untuk jadwal {tanggal}, {user_data['waktuMulai']} - {user_data['waktuSelesai']} telah berhasil."
             return render_template('konfirmasi.html', message=message, status="sukses")
